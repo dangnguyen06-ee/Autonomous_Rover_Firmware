@@ -3,11 +3,20 @@
 #include <TCA9548.h>
 #include <Adafruit_VL53L5CX.h>
 #include <Adafruit_VEML7700.h>
+#include <Adafruit_BNO08x.h>
 
 #define MUX_RESET_PIN 4
 #define SCL_PIN 5
 #define SDA_PIN 6
+#define BNO08X_SCK  12   // SCL  (FSPICLK)
+#define BNO08X_MISO 13   // SDA  (FSPIQ)
+#define BNO08X_MOSI 11   // AD0  (FSPID)
+#define BNO08X_CS   10   // (FSPICS0)
+#define BNO08X_INT  14   // INT  (GPIO14)
+#define BNO08X_RST  9   // RST  (GPIO9)
 
+Adafruit_BNO08x bno08x(BNO08X_RST);
+sh2_SensorValue_t sensorValue;
 TCA9548 tca9548(0x70);
 uint8_t channels = 0;
 
@@ -48,6 +57,7 @@ void setup() {
     Adafruit_VL53L5CX* sensors[3] = {&tof_l, &tof_m, &tof_r};
     for (uint8_t i = 0; i < 3; i++) {
         tca9548.selectChannel(i);
+        Serial.printf("Initializing ToF %u on channel %u\n", i, i);
         if (!sensors[i]->begin(VL53L5CX_DEFAULT_ADDRESS, &Wire, 400000)) {
             Serial.printf("ToF %u init failed\n", i);
             halt(F("halting"));
@@ -58,7 +68,31 @@ void setup() {
     }
     //  initialize the ambient light sensor
     tca9548.selectChannel(3);  //  ambient light sensor is on channel 3
+    Serial.println("Initializing ambient light sensor");
     if (!veml.begin()) halt(F("Ambient light sensor error"));
+
+    //  initialize the BNO08x sensor
+    Serial.println("Initializing BNO08x sensor");
+    SPI.begin(BNO08X_SCK, BNO08X_MISO, BNO08X_MOSI, BNO08X_CS);
+    if (!bno08x.begin_SPI(BNO08X_CS, BNO08X_INT, &SPI, 1000000)) {
+        halt(F("BNO08x init failed"));
+    }
+    Serial.println("BNO08x initialized");
+    bno08x.enableReport(SH2_GAME_ROTATION_VECTOR);
+}
+void bno08xReadAndPrint() {
+    if (bno08x.wasReset()) {
+        bno08x.enableReport(SH2_GAME_ROTATION_VECTOR);
+    }
+
+    if (bno08x.getSensorEvent(&sensorValue) &&
+    sensorValue.sensorId == SH2_GAME_ROTATION_VECTOR) {
+        Serial.printf("%.4f,%.4f,%.4f,%.4f\n",
+                  sensorValue.un.gameRotationVector.real,
+                  sensorValue.un.gameRotationVector.i,
+                  sensorValue.un.gameRotationVector.j,
+                  sensorValue.un.gameRotationVector.k);
+    }
 }
 
 void tofReadAndPrint(Adafruit_VL53L5CX &tof, uint8_t channel) {
@@ -104,7 +138,7 @@ void printAmbientLight() {
 
 void loop() 
 {
-    if ((millis() - lastTime) > 100) //print every 100ms
+    if ((millis() - lastTime) > 5000) //print every 5000ms
     {
     lastTime = millis();
 
@@ -112,5 +146,6 @@ void loop()
     tofReadAndPrint(tof_m, 1);
     tofReadAndPrint(tof_r, 2);
     printAmbientLight();
+    bno08xReadAndPrint();
     }
 }

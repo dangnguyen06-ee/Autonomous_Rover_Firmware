@@ -21,7 +21,5 @@
 # Logs
 *.log
  
-/test
-/lib
-/include
+
 /.vscode

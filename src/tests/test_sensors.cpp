@@ -8,14 +8,14 @@
 #define MUX_RESET_PIN 4
 #define SCL_PIN 5
 #define SDA_PIN 6
-#define BNO08X_SCK  12   // SCL  (FSPICLK)
-#define BNO08X_MISO 13   // SDA  (FSPIQ)
-#define BNO08X_MOSI 11   // AD0  (FSPID)
-#define BNO08X_CS   10   // (FSPICS0)
-#define BNO08X_INT  14   // INT  (GPIO14)
-#define BNO08X_RST  9   // RST  (GPIO9)
+// #define BNO08X_SCK  12   // SCL  (FSPICLK)
+// #define BNO08X_MISO 13   // SDA  (FSPIQ)
+// #define BNO08X_MOSI 11   // AD0  (FSPID)
+// #define BNO08X_CS   10   // (FSPICS0)
+// #define BNO08X_INT  14   // INT  (GPIO14)
+// #define BNO08X_RST  9   // RST  (GPIO9)
 
-Adafruit_BNO08x bno08x(BNO08X_RST);
+// Adafruit_BNO08x bno08x(BNO08X_RST);
 sh2_SensorValue_t sensorValue;
 TCA9548 tca9548(0x70);
 uint8_t channels = 0;
@@ -36,7 +36,7 @@ void halt(const __FlashStringHelper* msg) {
 }
 
 void setup() {
-    Serial.begin(115200);
+    Serial.begin(921600);
     delay(2000);
     Serial.println("boot");
 
@@ -71,42 +71,44 @@ void setup() {
     Serial.println("Initializing ambient light sensor");
     if (!veml.begin()) halt(F("Ambient light sensor error"));
 
-    //  initialize the BNO08x sensor
-    Serial.println("Initializing BNO08x sensor");
-    SPI.begin(BNO08X_SCK, BNO08X_MISO, BNO08X_MOSI, BNO08X_CS);
-    if (!bno08x.begin_SPI(BNO08X_CS, BNO08X_INT, &SPI, 1000000)) {
-        halt(F("BNO08x init failed"));
-    }
-    Serial.println("BNO08x initialized");
-    bno08x.enableReport(SH2_GAME_ROTATION_VECTOR);
+    // //  initialize the BNO08x sensor
+    // Serial.println("Initializing BNO08x sensor");
+    // SPI.begin(BNO08X_SCK, BNO08X_MISO, BNO08X_MOSI, BNO08X_CS);
+    // if (!bno08x.begin_SPI(BNO08X_CS, BNO08X_INT, &SPI, 3000000)) {
+    //     halt(F("BNO08x init failed"));
+    // }
+    // Serial.println("BNO08x initialized");
+    // bno08x.enableReport(SH2_GAME_ROTATION_VECTOR);
 }
-void bno08xReadAndPrint() {
-    if (bno08x.wasReset()) {
-        bno08x.enableReport(SH2_GAME_ROTATION_VECTOR);
-    }
+// void bno08xReadAndPrint() {
+//     if (bno08x.wasReset()) {
+//         bno08x.enableReport(SH2_GAME_ROTATION_VECTOR, 10000); // 1 Hz
+//     }
 
-    if (bno08x.getSensorEvent(&sensorValue) &&
-    sensorValue.sensorId == SH2_GAME_ROTATION_VECTOR) {
-        Serial.printf("%.4f,%.4f,%.4f,%.4f\n",
-                  sensorValue.un.gameRotationVector.real,
-                  sensorValue.un.gameRotationVector.i,
-                  sensorValue.un.gameRotationVector.j,
-                  sensorValue.un.gameRotationVector.k);
-    }
-}
+//     if (bno08x.getSensorEvent(&sensorValue) &&
+//     sensorValue.sensorId == SH2_GAME_ROTATION_VECTOR) {
+//         Serial.printf("%.4f,%.4f,%.4f,%.4f\n",
+//                   sensorValue.un.gameRotationVector.real,
+//                   sensorValue.un.gameRotationVector.i,
+//                   sensorValue.un.gameRotationVector.j,
+//                   sensorValue.un.gameRotationVector.k);
+//     }
+// }
 
-void tofReadAndPrint(Adafruit_VL53L5CX &tof, uint8_t channel) {
+void tofReadAndPrint(Adafruit_VL53L5CX &tof, uint8_t channel, const char* prefix) {
     tca9548.selectChannel(channel);
     if (!tof.isDataReady()) return;
     if (!tof.getRangingData(&results)) return;
 
-    uint8_t width = (tof.getResolution() == 16) ? 4 : 8;
-    for (int x = width - 1; x >= 0; x--) {
-        for (int y = width * (width - 1); y >= 0; y -= width) {
-            Serial.print('\t');
-            Serial.print(results.distance_mm[x + y]);
+    Serial.print(prefix);
+    Serial.print(":");
+    
+    uint8_t totalPixels = (tof.getResolution() == 16) ? 16 : 64;
+    for (uint8_t i = 0; i < totalPixels; i++) {
+        Serial.print(results.distance_mm[i]);
+        if (i < totalPixels - 1) {
+            Serial.print(",");
         }
-        Serial.println();
     }
     Serial.println();
 }
@@ -136,16 +138,39 @@ void printAmbientLight() {
     }
 }
 
-void loop() 
-{
-    if ((millis() - lastTime) > 5000) //print every 5000ms
-    {
-    lastTime = millis();
+// Optimized Non-Blocking ESP32 Loop
+uint32_t lastIMU = 0;
+uint32_t lastToF = 0;
+uint32_t lastLux = 0;
 
-    tofReadAndPrint(tof_l, 0);
-    tofReadAndPrint(tof_m, 1);
-    tofReadAndPrint(tof_r, 2);
-    printAmbientLight();
-    bno08xReadAndPrint();
+void loop() {
+    uint32_t now = millis();
+
+    // // 1. BNO085 IMU @ 50 Hz (every 20 ms) -> Buttery Smooth 60 FPS
+    // if (now - lastIMU >= 20) {
+    //     lastIMU = now;
+    //     if (bno08x.getSensorEvent(&sensorValue) && sensorValue.sensorId == SH2_GAME_ROTATION_VECTOR) {
+    //         Serial.printf("BNO:%.4f,%.4f,%.4f,%.4f\n",
+    //             sensorValue.un.gameRotationVector.real,
+    //             sensorValue.un.gameRotationVector.i,
+    //             sensorValue.un.gameRotationVector.j,
+    //             sensorValue.un.gameRotationVector.k);
+    //     }
+    // }
+
+    // 2. VL53L5CX ToF Sensors @ 15 Hz (every 66 ms)
+    if (now - lastToF >= 66) {
+        lastToF = now;
+        tofReadAndPrint(tof_l, 0, "TOFL");
+        tofReadAndPrint(tof_m, 1, "TOFM");
+        tofReadAndPrint(tof_r, 2, "TOFR");
+    }
+
+    // 3. VEML7700 Lux @ 2 Hz (every 500 ms)
+    if (now - lastLux >= 500) {
+        lastLux = now;
+        tca9548.selectChannel(3);
+        float lux = veml.readLux(VEML_LUX_AUTO);
+        Serial.printf("LUX:%.2f\n", lux);
     }
 }

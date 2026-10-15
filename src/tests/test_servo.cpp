@@ -2,7 +2,7 @@
 #include <ESP32Servo.h>
 
 // Define the pin connected to your servo signal line (Orange)
-#define SERVO_PIN 1
+#define SERVO_PIN 18
 
 Servo myServo;
 

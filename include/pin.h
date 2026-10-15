@@ -10,10 +10,11 @@ namespace Pins {
     constexpr uint8_t BNO08X_INT = 14;   // INT  (GPIO14)
     constexpr uint8_t BNO08X_RST = 9;    // RST  (GPIO9)
 
-    // I2C pins for multiplexer
-    constexpr uint8_t PIN_MUX_RESET = 4;
-    constexpr uint8_t PIN_SCL = 5;
-    constexpr uint8_t PIN_SDA = 6;
+    // I2C pins for multiplexer and sensors
+    constexpr uint8_t MUX_RESET_PIN = 4; 
+    constexpr uint8_t SCL_PIN = 5;
+    constexpr uint8_t SDA_PIN = 6;
+    // i2c
 }
 TCA9548 tca9548(0x70);
 uint8_t channels = 0;

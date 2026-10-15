@@ -1,4 +1,7 @@
 // src/main.cpp
+#include "pin.h"
+#include "config.h"
+
 void loop() {
     tof::update();
     light::update();     // rate-limits itself to 4 Hz

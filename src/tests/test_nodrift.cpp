@@ -24,6 +24,7 @@
 #define BNO08X_CS   10   // (FSPICS0)
 #define BNO08X_INT  14   // INT  (GPIO14)
 #define BNO08X_RST  9   // RST  (GPIO9)
+#define BNO08X_WAKE 8   // PS0 (PS1 tied to 3.3V)
 
 // ============================================================
 //  SETTINGS
@@ -55,7 +56,7 @@ const float STEER_SIGN = 1.0f;
 // ============================================================
 //  GLOBALS
 // ============================================================
-Adafruit_BNO08x bno08x(BNO08X_RST);
+Adafruit_BNO08x bno08x(-1);  // reset handled manually in setup()
 sh2_SensorValue_t sensorValue;
 
 BTS7960 lmotor(M_EN, M_EN, L_RPWM, L_LPWM); // left driver
@@ -77,6 +78,19 @@ int      leftPwm = 0, rightPwm = 0;
 // ============================================================
 //  HELPERS
 // ============================================================
+bool wakeSensor() {
+  digitalWrite(BNO08X_WAKE, LOW);
+  uint32_t t0 = millis();
+  while (digitalRead(BNO08X_INT) && millis() - t0 < 500) {}
+  digitalWrite(BNO08X_WAKE, HIGH);
+  return !digitalRead(BNO08X_INT);
+}
+
+void enableReports() {
+  if (wakeSensor()) bno08x.enableReport(SH2_GAME_ROTATION_VECTOR);
+  else Serial.println("BNO08x wake failed");
+}
+
 uint8_t percentToPwm(uint8_t percent) {
     return (uint16_t)percent * 255 / 100;
 }
@@ -284,7 +298,7 @@ void setup() {
     Serial.begin(115200);
     delay(2000);
     Serial.println("boot");
- 
+
     // Motors first, held stopped
     lmotor.begin();
     rmotor.begin();
@@ -293,17 +307,20 @@ void setup() {
     rmotor.enable();
     Serial.println("Motors stopped, drivers enabled");
 
+    
+    pinMode(BNO08X_WAKE, OUTPUT);
+    digitalWrite(BNO08X_WAKE, HIGH);  // must be HIGH during reset for SPI mode
+
+    pinMode(BNO08X_RST, OUTPUT);
+    digitalWrite(BNO08X_RST, LOW);  delay(10);
+    digitalWrite(BNO08X_RST, HIGH); delay(500);
     //  initialize the BNO08x sensor
     Serial.println("Initializing BNO08x sensor");
     SPI.begin(BNO08X_SCK, BNO08X_MISO, BNO08X_MOSI, BNO08X_CS);
     if (!bno08x.begin_SPI(BNO08X_CS, BNO08X_INT, &SPI, 1000000)) {
         while (1) delay(10);
     }
-    Serial.println("BNO08x initialized");
-    Serial.println("Enabling BNO08x report");
-    if (!bno08x.enableReport(SH2_GAME_ROTATION_VECTOR)) {
-        halt(F("Failed to enable BNO08x report"));
-    }
+    enableReports();
 
     // WiFi
     Serial.println("Starting WiFi");

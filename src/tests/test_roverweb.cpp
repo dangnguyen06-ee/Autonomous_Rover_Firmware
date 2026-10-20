@@ -24,8 +24,8 @@
 #include <BTS7960.h>
  
 // Motor driver 1 pins
-#define L_EN 4
-#define R_EN 4
+#define L_EN 40
+#define R_EN 40
 #define R_PWM 1
 #define L_PWM 2
  

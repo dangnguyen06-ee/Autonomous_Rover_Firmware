@@ -2,7 +2,7 @@
 #include <ESP32Servo.h>
 
 // Define the pin connected to your servo signal line (Orange)
-#define SERVO_PIN 18
+#define SERVO_PIN 14
 
 Servo myServo;
 
@@ -29,20 +29,10 @@ void setup() {
 
 void loop() {
     // Sweep from 0 to 180 degrees
-    for (int angle = 0; angle <= 180; angle += 1) {
-        myServo.write(angle);
-        delay(15); // 15ms per degree gives a smooth, standard speed
-    }
-    
-    // Optional: Short pause at the 180 degree limit
-    delay(500); 
-
-    // Sweep back from 180 to 0 degrees
-    for (int angle = 180; angle >= 0; angle -= 1) {
-        myServo.write(angle);
-        delay(15);
-    }
-    
-    // Optional: Short pause at the 0 degree limit
-    delay(500); 
+    myServo.write(0);
+    delay(1000); // Hold at 0 degrees for 1 second
+    myServo.write(90);
+    delay(1000); // Hold at 90 degrees for 1 second
+    myServo.write(180);
+    delay(1000); // Hold at 180 degrees for 1 second
 }

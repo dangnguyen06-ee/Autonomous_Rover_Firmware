@@ -9,17 +9,34 @@
 #define BNO08X_INT  14   // INT  (GPIO14)
 #define BNO08X_RST  9   // RST  (GPIO9)
 
-Adafruit_BNO08x bno08x(BNO08X_RST);
+// -1 = the library does NOT touch the reset pin; we reset the chip ourselves below
+Adafruit_BNO08x bno08x(-1);
 sh2_SensorValue_t sensorValue;
 
 void setup() {
   Serial.begin(115200);
-  SPI.begin(BNO08X_SCK, BNO08X_MISO, BNO08X_MOSI, BNO08X_CS);
+  delay(2000);
 
+  // Reset the BNO085 ourselves, then give it time to boot before the library talks to it
+  pinMode(BNO08X_RST, OUTPUT);
+  digitalWrite(BNO08X_RST, HIGH); delay(10);
+  digitalWrite(BNO08X_RST, LOW);  delay(10);
+  digitalWrite(BNO08X_RST, HIGH);
+  delay(500);
+
+  // Initialize the BNO08x sensor
+  Serial.println("Initializing BNO08x sensor");
+  SPI.begin(BNO08X_SCK, BNO08X_MISO, BNO08X_MOSI, BNO08X_CS);
+  Serial.println("SPI initialized");
+  
   if (!bno08x.begin_SPI(BNO08X_CS, BNO08X_INT, &SPI, 1000000)) {
+    Serial.println("BNO08x init failed");
     while (1) delay(10);
   }
+  Serial.println("BNO08x initialized");
+  Serial.println("Enabling BNO08x report");
   bno08x.enableReport(SH2_GAME_ROTATION_VECTOR);
+  Serial.println("BNO08x report enabled");
 }
 
 void loop() {

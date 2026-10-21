@@ -3,6 +3,7 @@
 #include <TCA9548.h>
 #include <Adafruit_VL53L5CX.h>
 #include <Adafruit_VEML7700.h>
+#include <RCWL_1601_i2c.h>
 
 #define MUX_RESET_PIN 4
 #define SCL_PIN 5
@@ -15,6 +16,7 @@ Adafruit_VL53L5CX tof_l;    //  tof_l on channel 0
 Adafruit_VL53L5CX tof_m;   //  tof_m on channel 1
 Adafruit_VL53L5CX tof_r;   //  tof_r on channel 2
 Adafruit_VEML7700 veml = Adafruit_VEML7700();  //  ambient light sensor on channel 3
+I2C_Sonar rcwl; // rcwl 1601 on channel 4
 
 VL53L5CX_ResultsData results;
 
@@ -61,6 +63,19 @@ void setup() {
     tca9548.selectChannel(3);  //  ambient light sensor is on channel 3
     Serial.println("Initializing ambient light sensor");
     if (!veml.begin()) halt(F("Ambient light sensor error"));
+
+    // initialize ultrasonic sensor
+    tca9548.selectChannel(4);
+    Serial.println("Initializing ultrasonic sensor");
+    if (!rcwl.startScanning()) halt(F("Ultrasonic sensor error"))
+}
+
+void ultrasonicReadAndPrint() {
+    tca9548.selectChannel(4); // ultrasonic sensor is on channel 4
+    long um = rcwl.readUm();
+    float cm = um / 10000.0;
+    Serial.print(cm);
+    Serial.println("cm");
 }
 
 void tofReadAndPrint(Adafruit_VL53L5CX &tof, uint8_t channel) {
@@ -113,6 +128,9 @@ void loop()
     tofReadAndPrint(tof_l, 0);
     tofReadAndPrint(tof_m, 1);
     tofReadAndPrint(tof_r, 2);
+    delay(1000)
     printAmbientLight();
+    delay(2000)
+    ultrasonicReadAndPrint()
     }
 }

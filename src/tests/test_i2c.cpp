@@ -67,7 +67,7 @@ void setup() {
     // initialize ultrasonic sensor
     tca9548.selectChannel(4);
     Serial.println("Initializing ultrasonic sensor");
-    if (!rcwl.startScanning()) halt(F("Ultrasonic sensor error"))
+    if (!rcwl.startScanning()) halt(F("Ultrasonic sensor error"));
 }
 
 void ultrasonicReadAndPrint() {
@@ -128,9 +128,9 @@ void loop()
     tofReadAndPrint(tof_l, 0);
     tofReadAndPrint(tof_m, 1);
     tofReadAndPrint(tof_r, 2);
-    delay(1000)
+    delay(1000);
     printAmbientLight();
-    delay(2000)
-    ultrasonicReadAndPrint()
+    delay(2000);
+    ultrasonicReadAndPrint();
     }
 }
